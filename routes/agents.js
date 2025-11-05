@@ -17,10 +17,9 @@ router.post('/', auth, adminOnly, [
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
   }
-
   try {
     const { agentName, agentId, email, mobile, password } = req.body;
-    const user = new User({ agentName, agentId, email, mobile, passwordHash: password, role: 'agent' });
+    const user = new User({ agentName, agentId, email, mobile, password, role: 'agent' });
     await user.save();
     res.status(201).json({ message: 'Agent created', user: { id: user._id, agentName, agentId, email, mobile } });
   } catch (error) {
@@ -35,7 +34,7 @@ router.post('/', auth, adminOnly, [
 // GET /api/agents - Admin only
 router.get('/', auth, adminOnly, async (req, res) => {
   try {
-    const agents = await User.find({ role: 'agent' }).select('-passwordHash');
+    const agents = await User.find({ role: 'agent' }).select('-password');
     res.json(agents);
   } catch (error) {
     res.status(500).json({ message: error.message });
