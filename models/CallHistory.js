@@ -1,0 +1,14 @@
+const mongoose = require('mongoose');
+
+const callHistorySchema = new mongoose.Schema({
+  customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer', required: true },
+  agentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  interested: { type: Boolean },
+  callTime: { type: Date, default: Date.now },
+  disposition: { type: String },
+  nextCallDateTime: { type: Date },
+  attended: { type: Boolean },
+  notes: { type: String },
+}, { timestamps: true });
+
+module.exports = mongoose.model('CallHistory', callHistorySchema);
