@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const callHistorySchema = new mongoose.Schema({
   customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer', required: true },
@@ -11,4 +11,4 @@ const callHistorySchema = new mongoose.Schema({
   notes: { type: String },
 }, { timestamps: true });
 
-module.exports = mongoose.model('CallHistory', callHistorySchema);
+export default mongoose.model('CallHistory', callHistorySchema);

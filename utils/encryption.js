@@ -1,4 +1,4 @@
-const crypto = require('crypto');
+import crypto from 'crypto';
 
 if (!process.env.ENCRYPTION_KEY) {
   throw new Error('ENCRYPTION_KEY environment variable is not set. Please set it in your .env file.');
@@ -26,4 +26,4 @@ const decrypt = (encrypted) => {
   return decrypted;
 };
 
-module.exports = { encrypt, decrypt };
+export { encrypt, decrypt };

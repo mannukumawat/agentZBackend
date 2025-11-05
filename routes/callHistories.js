@@ -1,8 +1,8 @@
-const express = require('express');
-const { body, validationResult } = require('express-validator');
-const CallHistory = require('../models/CallHistory');
-const Customer = require('../models/Customer');
-const { auth, agentAccess } = require('../middleware/auth');
+import express from 'express';
+import { body, validationResult } from 'express-validator';
+import CallHistory from '../models/CallHistory.js';
+import Customer from '../models/Customer.js';
+import { auth, agentAccess } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -85,4 +85,4 @@ router.get('/agent/:agentId', auth, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

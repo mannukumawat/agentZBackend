@@ -1,7 +1,7 @@
-const express = require('express');
-const { body, validationResult } = require('express-validator');
-const Customer = require('../models/Customer');
-const { auth, adminOnly, agentAccess } = require('../middleware/auth');
+import express from 'express';
+import { body, validationResult } from 'express-validator';
+import Customer from '../models/Customer.js';
+import { auth, adminOnly, agentAccess } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -124,4 +124,4 @@ router.post('/:id/assign', auth, adminOnly, [
   }
 });
 
-module.exports = router;
+export default router;

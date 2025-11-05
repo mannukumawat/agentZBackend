@@ -1,7 +1,7 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const connectDB = require('./config/database');
+import 'dotenv/config';
+import express from 'express';
+import cors from 'cors';
+import connectDB from './config/database.js';
 
 const app = express();
 
@@ -14,11 +14,17 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Routes
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/agents', require('./routes/agents'));
-app.use('/api/customers', require('./routes/customers'));
-app.use('/api/call-histories', require('./routes/callHistories'));
-app.use('/api/uploads', require('./routes/uploads'));
+import authRoutes from './routes/auth.js';
+import agentsRoutes from './routes/agents.js';
+import customersRoutes from './routes/customers.js';
+import callHistoriesRoutes from './routes/callHistories.js';
+import uploadsRoutes from './routes/uploads.js';
+
+app.use('/api/auth', authRoutes);
+app.use('/api/agents', agentsRoutes);
+app.use('/api/customers', customersRoutes);
+app.use('/api/call-histories', callHistoriesRoutes);
+app.use('/api/uploads', uploadsRoutes);
 
 // Serve static files for local uploads
 if (!process.env.AWS_ACCESS_KEY_ID) {

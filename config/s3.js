@@ -1,4 +1,4 @@
-const AWS = require('aws-sdk');
+import AWS from 'aws-sdk';
 
 const s3 = new AWS.S3({
   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
@@ -6,4 +6,4 @@ const s3 = new AWS.S3({
   region: process.env.AWS_REGION,
 });
 
-module.exports = s3;
+export default s3;

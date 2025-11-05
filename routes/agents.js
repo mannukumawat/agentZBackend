@@ -1,7 +1,7 @@
-const express = require('express');
-const { body, validationResult } = require('express-validator');
-const User = require('../models/User');
-const { auth, adminOnly } = require('../middleware/auth');
+import express from 'express';
+import { body, validationResult } from 'express-validator';
+import User from '../models/User.js';
+import { auth, adminOnly } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -42,4 +42,4 @@ router.get('/', auth, adminOnly, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

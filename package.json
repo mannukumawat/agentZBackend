@@ -2,6 +2,7 @@
   "name": "crm-backend",
   "version": "1.0.0",
   "description": "CRM Backend with Node.js, Express, Mongoose",
+  "type": "module",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

@@ -1,5 +1,5 @@
-const mongoose = require('mongoose');
-const { encrypt } = require('../utils/encryption');
+import mongoose from 'mongoose';
+import { encrypt } from '../utils/encryption.js';
 
 const customerSchema = new mongoose.Schema({
   customerName: { type: String, required: true },
@@ -24,4 +24,4 @@ const customerSchema = new mongoose.Schema({
   assignedAgentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 }, { timestamps: true });
 
-module.exports = mongoose.model('Customer', customerSchema);
+export default mongoose.model('Customer', customerSchema);

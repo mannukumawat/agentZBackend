@@ -1,9 +1,9 @@
-const express = require('express');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-const s3 = require('../config/s3');
-const { auth } = require('../middleware/auth');
+import express from 'express';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import s3 from '../config/s3.js';
+import { auth } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -58,4 +58,4 @@ router.post('/', auth, uploadS3.single('file'), async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

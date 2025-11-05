@@ -1,0 +1,14 @@
+- [x] Update package.json to add "type": "module"
+- [x] Convert server.js to ES modules
+- [x] Convert config/database.js to ES modules
+- [x] Convert routes/auth.js to ES modules
+- [x] Convert middleware/auth.js to ES modules
+- [x] Convert models/User.js to ES modules
+- [x] Convert routes/agents.js to ES modules
+- [x] Convert routes/customers.js to ES modules
+- [x] Convert routes/callHistories.js to ES modules
+- [x] Convert routes/uploads.js to ES modules
+- [x] Convert models/Customer.js to ES modules
+- [x] Convert models/CallHistory.js to ES modules
+- [x] Convert utils/encryption.js to ES modules
+- [x] Convert config/s3.js to ES modules

@@ -1,5 +1,5 @@
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+import jwt from 'jsonwebtoken';
+import User from '../models/User.js';
 
 const auth = async (req, res, next) => {
   try {
@@ -32,4 +32,4 @@ const agentAccess = (req, res, next) => {
   next();
 };
 
-module.exports = { auth, adminOnly, agentAccess };
+export { auth, adminOnly, agentAccess };

@@ -1,8 +1,8 @@
-const express = require('express');
-const jwt = require('jsonwebtoken');
-const { body, validationResult } = require('express-validator');
-const User = require('../models/User');
-const { auth } = require('../middleware/auth');
+import express from 'express';
+import jwt from 'jsonwebtoken';
+import { body, validationResult } from 'express-validator';
+import User from '../models/User.js';
+import { auth } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -68,4 +68,4 @@ router.get('/me', auth, async (req, res) => {
   res.json({ user: { id: req.user._id, agentName: req.user.agentName, role: req.user.role } });
 });
 
-module.exports = router;
+export default router;
