@@ -56,8 +56,8 @@ const checkCustomerAccess = async (req, res, next) => {
   }
 };
 
-// POST /api/customers
-router.post('/', auth, upload.fields([
+// POST /api/customers - Admin only
+router.post('/', auth, adminOnly, upload.fields([
   { name: 'aadhaarFront', maxCount: 1 },
   { name: 'aadhaarBack', maxCount: 1 },
   { name: 'panFile', maxCount: 1 },
@@ -140,8 +140,8 @@ router.get('/:id', auth, checkCustomerAccess, async (req, res) => {
   res.json(req.customer);
 });
 
-// PUT /api/customers/:id
-router.put('/:id', auth, checkCustomerAccess, [
+// PUT /api/customers/:id - Admin only
+router.put('/:id', auth, adminOnly, checkCustomerAccess, [
   body('customerName').optional().notEmpty(),
 ], async (req, res) => {
   const errors = validationResult(req);
