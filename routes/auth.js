@@ -65,7 +65,7 @@ router.post(
 
 // GET /api/auth/me - Get current user
 router.get('/me', auth, async (req, res) => {
-  res.json({ user: { id: req.user._id, agentName: req.user.agentName, role: req.user.role } });
+  res.json({ user: { id: req.user._id, agentName: req.user.agentName, role: req.user.role , email:req.user.email } });
 });
 
 export default router;
