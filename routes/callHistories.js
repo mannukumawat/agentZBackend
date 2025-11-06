@@ -2,7 +2,8 @@ import express from 'express';
 import { body, validationResult } from 'express-validator';
 import CallHistory from '../models/CallHistory.js';
 import Customer from '../models/Customer.js';
-import { auth, agentAccess } from '../middleware/auth.js';
+import { auth,  } from '../middleware/auth.js';
+import moment from 'moment/moment.js';
 
 const router = express.Router();
 
@@ -82,6 +83,60 @@ router.get('/agent/:agentId', auth, async (req, res) => {
     res.json(callHistories);
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+});
+
+
+router.get("/all", auth, async (req, res) => {
+  try {
+    const todayStart = moment().startOf("day").toDate();
+    const todayEnd = moment().endOf("day").toDate();
+
+    const yesterdayStart = moment().subtract(1, "day").startOf("day").toDate();
+    const yesterdayEnd = moment().subtract(1, "day").endOf("day").toDate();
+
+    const nextDayStart = moment().add(1, "day").startOf("day").toDate();
+
+    let filter = {};
+
+    // ✅ Admin ko sabka data milega
+    // ✅ Agent ko sirf apna data milega
+    if (req.user.role !== "admin") {
+      filter.agentId = req.user._id;
+    }
+
+    // ✅ Important: filter apply
+    const data = await CallHistory.find(filter)
+      .populate("customerId")
+      .populate("agentId");
+
+    const result = {
+      yesterday: [],
+      today: [],
+      next: []
+    };
+
+    data.forEach(item => {
+      const callDate = item.nextCallDateTime;
+      if (!callDate) return;
+
+      if (callDate >= yesterdayStart && callDate <= yesterdayEnd) {
+        result.yesterday.push(item);
+      } else if (callDate >= todayStart && callDate <= todayEnd) {
+        result.today.push(item);
+      } else if (callDate >= nextDayStart) {
+        result.next.push(item);
+      }
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result
+    });
+
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({ success: false, message: "Server Error" });
   }
 });
 
