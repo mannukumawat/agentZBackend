@@ -3,6 +3,7 @@ import { body, validationResult } from 'express-validator';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import csv from 'csv-parser';
 import s3 from '../config/s3.js';
 import Customer from '../models/Customer.js';
 import { auth, adminOnly, agentAccess } from '../middleware/auth.js';
@@ -56,17 +57,26 @@ const checkCustomerAccess = async (req, res, next) => {
   }
 };
 
-// POST /api/customers - Admin only
-router.post('/', auth, adminOnly, upload.fields([
-  { name: 'aadhaarFront', maxCount: 1 },
-  { name: 'aadhaarBack', maxCount: 1 },
-  { name: 'panFile', maxCount: 1 },
-  { name: 'selfie', maxCount: 1 },
-  { name: 'incomeProofFiles', maxCount: 10 } // Assuming max 10 income proof files
-]), [
+// POST /api/customers - Admin only (JSON data with URLs)
+router.post('/', auth, adminOnly, [
   body('customerName').notEmpty(),
-  body('mobileNumbers').isArray(),
-  body('emails').isArray(),
+  body('mobileNumbers').optional().isArray(),
+  body('emails').optional().isArray(),
+  body('creditScore').optional().isNumeric(),
+  body('address').optional().isString(),
+  body('pinCode').optional().isString(),
+  body('gender').optional().isIn(['male', 'female', 'other']),
+  body('occupation').optional().isIn(['salary', 'non-salary', 'business', 'other']),
+  body('income').optional().isNumeric(),
+  body('dob').optional().isISO8601(),
+  body('aadhaarNumber').optional().isString(),
+  body('panNumber').optional().isString(),
+  body('aadhaarFiles.frontUrl').optional().isURL(),
+  body('aadhaarFiles.backUrl').optional().isURL(),
+  body('panFile').optional().isURL(),
+  body('selfie').optional().isURL(),
+  body('incomeProofFiles').optional().isArray(),
+  body('assignedAgentId').optional().isMongoId(),
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -75,31 +85,63 @@ router.post('/', auth, adminOnly, upload.fields([
 
   try {
     const customerData = { ...req.body };
-
-    // Handle file uploads
-    if (req.files) {
-      if (req.files.aadhaarFront) {
-        customerData.aadhaarFiles = customerData.aadhaarFiles || {};
-        customerData.aadhaarFiles.frontUrl = await uploadFile(req.files.aadhaarFront[0]);
-      }
-      if (req.files.aadhaarBack) {
-        customerData.aadhaarFiles = customerData.aadhaarFiles || {};
-        customerData.aadhaarFiles.backUrl = await uploadFile(req.files.aadhaarBack[0]);
-      }
-      if (req.files.panFile) {
-        customerData.panFile = await uploadFile(req.files.panFile[0]);
-      }
-      if (req.files.selfie) {
-        customerData.selfie = await uploadFile(req.files.selfie[0]);
-      }
-      if (req.files.incomeProofFiles) {
-        customerData.incomeProofFiles = await Promise.all(req.files.incomeProofFiles.map(file => uploadFile(file)));
-      }
-    }
-
     const customer = new Customer(customerData);
     await customer.save();
     res.status(201).json(customer);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// POST /api/customers/upload-csv - Admin only (CSV upload)
+router.post('/upload-csv', auth, adminOnly, upload.single('csvFile'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No CSV file uploaded' });
+    }
+
+    const customers = [];
+    const csvData = req.file.buffer.toString('utf8');
+    const rows = csvData.split('\n').slice(1); // Skip header
+
+    for (const row of rows) {
+      if (!row.trim()) continue;
+      const [customerName, mobileNumbers, emails, creditScore, address, pinCode, gender, occupation, income, dob, aadhaarNumber, panNumber, aadhaarFrontUrl, aadhaarBackUrl, panFileUrl, selfieUrl, incomeProofFiles, assignedAgentId] = row.split(',');
+
+      const customerData = {
+        customerName: customerName?.trim(),
+        mobileNumbers: mobileNumbers ? mobileNumbers.split(';').map(m => m.trim()) : [],
+        emails: emails ? emails.split(';').map(e => e.trim()) : [],
+        creditScore: creditScore ? parseFloat(creditScore.trim()) : undefined,
+        address: address?.trim(),
+        pinCode: pinCode?.trim(),
+        gender: gender?.trim(),
+        occupation: occupation?.trim(),
+        income: income ? parseFloat(income.trim()) : undefined,
+        dob: dob?.trim() ? new Date(dob.trim()) : undefined,
+        aadhaarNumber: aadhaarNumber?.trim(),
+        panNumber: panNumber?.trim(),
+        aadhaarFiles: {
+          frontUrl: aadhaarFrontUrl?.trim(),
+          backUrl: aadhaarBackUrl?.trim(),
+        },
+        panFile: panFileUrl?.trim(),
+        selfie: selfieUrl?.trim(),
+        incomeProofFiles: incomeProofFiles ? incomeProofFiles.split(';').map(f => f.trim()) : [],
+        assignedAgentId: assignedAgentId?.trim(),
+      };
+
+      customers.push(customerData);
+    }
+
+    const savedCustomers = [];
+    for (const customerData of customers) {
+      const customer = new Customer(customerData);
+      await customer.save();
+      savedCustomers.push(customer);
+    }
+
+    res.status(201).json({ message: `${savedCustomers.length} customers created`, customers: savedCustomers });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

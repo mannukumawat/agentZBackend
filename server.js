@@ -18,13 +18,13 @@ import authRoutes from './routes/auth.js';
 import agentsRoutes from './routes/agents.js';
 import customersRoutes from './routes/customers.js';
 import callHistoriesRoutes from './routes/callHistories.js';
-import uploadsRoutes from './routes/uploads.js';
+
 
 app.use('/api/auth', authRoutes);
 app.use('/api/agents', agentsRoutes);
 app.use('/api/customers', customersRoutes);
 app.use('/api/call-histories', callHistoriesRoutes);
-app.use('/api/uploads', uploadsRoutes);
+
 
 // Serve static files for local uploads
 if (!process.env.AWS_ACCESS_KEY_ID) {
