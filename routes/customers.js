@@ -4,6 +4,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import csv from 'csv-parser';
+import { Readable } from 'stream';
 import s3 from '../config/s3.js';
 import Customer from '../models/Customer.js';
 import { auth, adminOnly, agentAccess } from '../middleware/auth.js';
@@ -101,47 +102,64 @@ router.post('/upload-csv', auth, adminOnly, upload.single('csvFile'), async (req
     }
 
     const customers = [];
-    const csvData = req.file.buffer.toString('utf8');
-    const rows = csvData.split('\n').slice(1); // Skip header
+    const batchSize = 1000; // Adjust batch size as needed for performance
 
-    for (const row of rows) {
-      if (!row.trim()) continue;
-      const [customerName, mobileNumbers, emails, creditScore, address, pinCode, gender, occupation, income, dob, aadhaarNumber, panNumber, aadhaarFrontUrl, aadhaarBackUrl, panFileUrl, selfieUrl, incomeProofFiles, assignedAgentId] = row.split(',');
+    // Use csv-parser to stream the CSV data
+    const csvStream = csv({
+      skipEmptyLines: true,
+      headers: ['customerName', 'mobileNumbers', 'emails', 'creditScore', 'address', 'pinCode', 'gender', 'occupation', 'income', 'dob', 'aadhaarNumber', 'panNumber', 'aadhaarFrontUrl', 'aadhaarBackUrl', 'panFileUrl', 'selfieUrl', 'incomeProofFiles', 'assignedAgentId']
+    });
 
+    const processRow = (row) => {
       const customerData = {
-        customerName: customerName?.trim(),
-        mobileNumbers: mobileNumbers ? mobileNumbers.split(';').map(m => m.trim()) : [],
-        emails: emails ? emails.split(';').map(e => e.trim()) : [],
-        creditScore: creditScore ? parseFloat(creditScore.trim()) : undefined,
-        address: address?.trim(),
-        pinCode: pinCode?.trim(),
-        gender: gender?.trim(),
-        occupation: occupation?.trim(),
-        income: income ? parseFloat(income.trim()) : undefined,
-        dob: dob?.trim() ? new Date(dob.trim()) : undefined,
-        aadhaarNumber: aadhaarNumber?.trim(),
-        panNumber: panNumber?.trim(),
+        customerName: row.customerName?.trim(),
+        mobileNumbers: row.mobileNumbers ? row.mobileNumbers.split(';').map(m => m.trim()) : [],
+        emails: row.emails ? row.emails.split(';').map(e => e.trim()) : [],
+        creditScore: row.creditScore ? parseFloat(row.creditScore.trim()) : undefined,
+        address: row.address?.trim(),
+        pinCode: row.pinCode?.trim(),
+        gender: row.gender?.trim(),
+        occupation: row.occupation?.trim(),
+        income: row.income ? parseFloat(row.income.trim()) : undefined,
+        dob: row.dob?.trim() ? new Date(row.dob.trim()) : undefined,
+        aadhaarNumber: row.aadhaarNumber?.trim(),
+        panNumber: row.panNumber?.trim(),
         aadhaarFiles: {
-          frontUrl: aadhaarFrontUrl?.trim(),
-          backUrl: aadhaarBackUrl?.trim(),
+          frontUrl: row.aadhaarFrontUrl?.trim(),
+          backUrl: row.aadhaarBackUrl?.trim(),
         },
-        panFile: panFileUrl?.trim(),
-        selfie: selfieUrl?.trim(),
-        incomeProofFiles: incomeProofFiles ? incomeProofFiles.split(';').map(f => f.trim()) : [],
-        assignedAgentId: assignedAgentId?.trim(),
+        panFile: row.panFileUrl?.trim(),
+        selfie: row.selfieUrl?.trim(),
+        incomeProofFiles: row.incomeProofFiles ? row.incomeProofFiles.split(';').map(f => f.trim()) : [],
+        assignedAgentId: row.assignedAgentId?.trim(),
       };
-
       customers.push(customerData);
-    }
 
-    const savedCustomers = [];
-    for (const customerData of customers) {
-      const customer = new Customer(customerData);
-      await customer.save();
-      savedCustomers.push(customer);
-    }
+      // Process in batches
+      if (customers.length >= batchSize) {
+        const batch = customers.splice(0, batchSize);
+        Customer.insertMany(batch).catch(err => console.error('Batch insert error:', err));
+      }
+    };
 
-    res.status(201).json({ message: `${savedCustomers.length} customers created`, customers: savedCustomers });
+    const finishProcessing = async () => {
+      // Insert remaining customers
+      if (customers.length > 0) {
+        await Customer.insertMany(customers);
+      }
+      const totalInserted = await Customer.countDocuments(); // Approximate count, adjust if needed
+      res.status(201).json({ message: `Customers uploaded successfully`, totalInserted });
+    };
+
+    // Pipe the buffer to the CSV parser
+    const bufferStream = Readable.from(req.file.buffer);
+    bufferStream.pipe(csvStream)
+      .on('data', processRow)
+      .on('end', finishProcessing)
+      .on('error', (error) => {
+        res.status(500).json({ message: error.message });
+      });
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
