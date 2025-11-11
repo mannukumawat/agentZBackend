@@ -249,4 +249,18 @@ router.post('/:id/assign', auth, adminOnly, [
   }
 });
 
+// POST /api/customers/:id/unassign - Admin only
+router.post('/:id/unassign', auth, adminOnly, [], async (req, res) => {
+  try {
+    const customer = await Customer.findById(req.params.id);
+    if (!customer) return res.status(404).json({ message: 'Customer not found' });
+
+    customer.assignedAgentId = null;
+    await customer.save();
+    res.json({ message: 'Customer unassigned', customer });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 export default router;
