@@ -12,8 +12,8 @@ const customerSchema = new mongoose.Schema({
   occupation: { type: String, enum: ['salary', 'non-salary', 'business', 'other'] },
   income: { type: Number },
   dob: { type: Date },
-  aadhaarNumber: { type: String, set: encrypt },
-  panNumber: { type: String, set: encrypt },
+  aadhaarNumber: { type: String,  },
+  panNumber: { type: String,  },
   aadhaarFiles: {
     frontUrl: { type: String },
     backUrl: { type: String },

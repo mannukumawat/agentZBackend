@@ -102,68 +102,167 @@ router.post('/upload-csv', auth, adminOnly, upload.single('csvFile'), async (req
     }
 
     const customers = [];
-    const batchSize = 1000; // Adjust batch size as needed for performance
+    const batchSize = 1000;
 
-    // Use csv-parser to stream the CSV data
+    // ---------- HELPERS ----------
+    const cleanNumber = (val) => {
+      if (!val || val.trim() === "") return undefined;
+      const num = parseFloat(val);
+      return isNaN(num) ? undefined : num;
+    };
+
+    const cleanDate = (val) => {
+      if (!val || val.trim() === "") return undefined;
+      const d = new Date(val);
+      return isNaN(d.getTime()) ? undefined : d;
+    };
+
+    const isValidObjectId = (id) => /^[0-9a-fA-F]{24}$/.test(id);
+
+    const allowedGenders = ["male", "female", "other"];
+    const allowedOccupations = ["salaried", "self-employed", "business", "student"];
+
+    // ---------- CSV PARSER ----------
     const csvStream = csv({
       skipEmptyLines: true,
-      headers: ['customerName', 'mobileNumbers', 'emails', 'creditScore', 'address', 'pinCode', 'gender', 'occupation', 'income', 'dob', 'aadhaarNumber', 'panNumber', 'aadhaarFrontUrl', 'aadhaarBackUrl', 'panFileUrl', 'selfieUrl', 'incomeProofFiles', 'assignedAgentId']
+      headers: [
+        'customerName',
+        'mobileNumbers',
+        'emails',
+        'creditScore',
+        'address',
+        'pinCode',
+        'gender',
+        'occupation',
+        'income',
+        'dob',
+        'aadhaarNumber',
+        'panNumber',
+        'aadhaarFrontUrl',
+        'aadhaarBackUrl',
+        'panFileUrl',
+        'selfieUrl',
+        'incomeProofFiles',
+        'assignedAgentId'
+      ]
     });
 
-    const processRow = (row) => {
+    // ---------- PROCESS EACH ROW ----------
+    const processRow = (row, index) => {
+      const rowNum = index + 1;
+
+      const customerName = row.customerName?.trim();
+      const mobileNumbers = row.mobileNumbers
+        ? row.mobileNumbers.split(";").map(m => m.trim())
+        : [];
+
+      // Required fields check
+      if (!customerName || mobileNumbers.length === 0) {
+        console.log(`❌ Skipping row ${rowNum}: Missing required fields`, row);
+        return;
+      }
+
+      // Clean & Validate
+      const gender = row.gender?.trim().toLowerCase();
+      const occupation = row.occupation?.trim().toLowerCase();
+      const agentId = row.assignedAgentId?.trim();
+
+      if (gender && !allowedGenders.includes(gender)) {
+        console.log(`❌ Row ${rowNum}: Invalid gender →`, row.gender);
+      }
+
+      if (occupation && !allowedOccupations.includes(occupation)) {
+        console.log(`❌ Row ${rowNum}: Invalid occupation →`, row.occupation);
+      }
+
+      if (agentId && !isValidObjectId(agentId)) {
+        console.log(`❌ Row ${rowNum}: Invalid assignedAgentId →`, row.assignedAgentId);
+      }
+
       const customerData = {
-        customerName: row.customerName?.trim(),
-        mobileNumbers: row.mobileNumbers ? row.mobileNumbers.split(';').map(m => m.trim()) : [],
-        emails: row.emails ? row.emails.split(';').map(e => e.trim()) : [],
-        creditScore: row.creditScore ? parseFloat(row.creditScore.trim()) : undefined,
-        address: row.address?.trim(),
-        pinCode: row.pinCode?.trim(),
-        gender: row.gender?.trim(),
-        occupation: row.occupation?.trim(),
-        income: row.income ? parseFloat(row.income.trim()) : undefined,
-        dob: row.dob?.trim() ? new Date(row.dob.trim()) : undefined,
-        aadhaarNumber: row.aadhaarNumber?.trim(),
-        panNumber: row.panNumber?.trim(),
+        customerName,
+        mobileNumbers,
+
+        emails: row.emails
+          ? row.emails.split(";").map(e => e.trim())
+          : [],
+
+        creditScore: cleanNumber(row.creditScore),
+        income: cleanNumber(row.income),
+
+        dob: cleanDate(row.dob),
+
+        address: row.address?.trim() || undefined,
+        pinCode: row.pinCode?.trim() || undefined,
+
+        gender: allowedGenders.includes(gender) ? gender : undefined,
+        occupation: allowedOccupations.includes(occupation) ? occupation : undefined,
+
+        aadhaarNumber: row.aadhaarNumber?.trim() || undefined,
+        panNumber: row.panNumber?.trim() || undefined,
+
         aadhaarFiles: {
-          frontUrl: row.aadhaarFrontUrl?.trim(),
-          backUrl: row.aadhaarBackUrl?.trim(),
+          frontUrl: row.aadhaarFrontUrl?.trim() || undefined,
+          backUrl: row.aadhaarBackUrl?.trim() || undefined,
         },
-        panFile: row.panFileUrl?.trim(),
-        selfie: row.selfieUrl?.trim(),
-        incomeProofFiles: row.incomeProofFiles ? row.incomeProofFiles.split(';').map(f => f.trim()) : [],
-        assignedAgentId: row.assignedAgentId?.trim(),
+
+        panFile: row.panFileUrl?.trim() || undefined,
+        selfie: row.selfieUrl?.trim() || undefined,
+
+        incomeProofFiles: row.incomeProofFiles
+          ? row.incomeProofFiles.split(";").map(f => f.trim())
+          : [],
+
+        assignedAgentId: isValidObjectId(agentId) ? agentId : undefined,
       };
+
       customers.push(customerData);
 
-      // Process in batches
+      // Batch insert
       if (customers.length >= batchSize) {
         const batch = customers.splice(0, batchSize);
-        Customer.insertMany(batch).catch(err => console.error('Batch insert error:', err));
+        Customer.insertMany(batch).catch(err =>
+          console.error('❌ Batch insert error:', err)
+        );
       }
     };
 
-    const finishProcessing = async () => {
-      // Insert remaining customers
-      if (customers.length > 0) {
-        await Customer.insertMany(customers);
-      }
-      const totalInserted = await Customer.countDocuments(); // Approximate count, adjust if needed
-      res.status(201).json({ message: `Customers uploaded successfully`, totalInserted });
-    };
-
-    // Pipe the buffer to the CSV parser
+    // ---------- PIPE STREAM ----------
+    let rowIndex = 0;
     const bufferStream = Readable.from(req.file.buffer);
-    bufferStream.pipe(csvStream)
-      .on('data', processRow)
-      .on('end', finishProcessing)
+
+    bufferStream
+      .pipe(csvStream)
+      .on('data', (row) => processRow(row, rowIndex++))
+      .on('end', async () => {
+        if (customers.length > 0) {
+          try {
+            await Customer.insertMany(customers);
+          } catch (err) {
+            console.error("❌ Final batch error:", err);
+          }
+        }
+
+        const totalInserted = await Customer.countDocuments();
+
+        res.status(201).json({
+          message: "CSV uploaded successfully",
+          totalInserted
+        });
+      })
       .on('error', (error) => {
+        console.log("❌ CSV parsing error:", error);
         res.status(500).json({ message: error.message });
       });
 
   } catch (error) {
+    console.log("❌ Route error:", error);
     res.status(500).json({ message: error.message });
   }
 });
+
+
+
 
 // GET /api/customers - with pagination and filters
 router.get('/', auth, async (req, res) => {
