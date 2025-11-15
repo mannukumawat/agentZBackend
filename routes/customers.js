@@ -264,35 +264,45 @@ router.post('/upload-csv', auth, adminOnly, upload.single('csvFile'), async (req
 
 
 
+
 // GET /api/customers - with pagination and filters
 router.get('/', auth, async (req, res) => {
   try {
     const { page = 1, limit = 10, pinCode, agentId } = req.query;
+
     let query = {};
 
+    // If agent → only his customers
     if (req.user.role === 'agent') {
       query.assignedAgentId = req.user._id;
     }
 
+    // Filters
     if (pinCode) query.pinCode = pinCode;
     if (agentId && req.user.role === 'admin') query.assignedAgentId = agentId;
 
+    // Fetch customers
     const customers = await Customer.find(query)
       .populate('assignedAgentId', 'agentName')
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
+      .limit(Number(limit))
+      .skip((Number(page) - 1) * Number(limit))
       .exec();
 
+    // Count total matching customers
     const count = await Customer.countDocuments(query);
+
     res.json({
       customers,
       totalPages: Math.ceil(count / limit),
-      currentPage: page,
+      currentPage: Number(page),
+      totalCount: count, // <-- Added this line (TOTAL COUNT)
     });
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
+
 
 // GET /api/customers/:id
 router.get('/:id', auth, checkCustomerAccess, async (req, res) => {
