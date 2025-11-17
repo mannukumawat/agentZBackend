@@ -98,14 +98,9 @@ router.get("/all", auth, async (req, res) => {
     const nextDayStart = moment().add(1, "day").startOf("day").toDate();
 
     let filter = {};
-
-    // ✅ Admin ko sabka data milega
-    // ✅ Agent ko sirf apna data milega
     if (req.user.role !== "admin") {
       filter.agentId = req.user._id;
     }
-
-    // ✅ Important: filter apply
     const data = await CallHistory.find(filter)
       .populate("customerId")
       .populate("agentId");
@@ -116,18 +111,38 @@ router.get("/all", auth, async (req, res) => {
       next: []
     };
 
+    const yesterdayMap = new Map();
+    const todayMap = new Map();
+    const nextMap = new Map();
+
     data.forEach(item => {
       const callDate = item.nextCallDateTime;
       if (!callDate) return;
 
+      let category = null;
+      let map = null;
       if (callDate >= yesterdayStart && callDate <= yesterdayEnd) {
-        result.yesterday.push(item);
+        category = 'yesterday';
+        map = yesterdayMap;
       } else if (callDate >= todayStart && callDate <= todayEnd) {
-        result.today.push(item);
+        category = 'today';
+        map = todayMap;
       } else if (callDate >= nextDayStart) {
-        result.next.push(item);
+        category = 'next';
+        map = nextMap;
+      }
+
+      if (category && map) {
+        const key = item.customerId._id.toString();
+        if (!map.has(key) || item.updatedAt > map.get(key).updatedAt) {
+          map.set(key, item);
+        }
       }
     });
+
+    result.yesterday = Array.from(yesterdayMap.values());
+    result.today = Array.from(todayMap.values());
+    result.next = Array.from(nextMap.values());
 
     return res.status(200).json({
       success: true,
