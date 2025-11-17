@@ -268,7 +268,7 @@ router.post('/upload-csv', auth, adminOnly, upload.single('csvFile'), async (req
 // GET /api/customers - with pagination and filters
 router.get('/', auth, async (req, res) => {
   try {
-    const { page = 1, limit = 10, pinCode, agentId } = req.query;
+    const { page = 1, limit = 30, pinCode, agentId } = req.query;
 
     let query = {};
 
