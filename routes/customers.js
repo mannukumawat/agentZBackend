@@ -268,7 +268,7 @@ router.post('/upload-csv', auth, adminOnly, upload.single('csvFile'), async (req
 // GET /api/customers - with pagination and filters
 router.get('/', auth, async (req, res) => {
   try {
-    const { page = 1, limit = 30, pinCode, agentId } = req.query;
+    const { page = 1, limit = 30, mobileNumbers, agentId , customerName} = req.query;
 
     let query = {};
 
@@ -278,7 +278,8 @@ router.get('/', auth, async (req, res) => {
     }
 
     // Filters
-    if (pinCode) query.pinCode = pinCode;
+    if (mobileNumbers) query.mobileNumbers = { $elemMatch: { $regex: mobileNumbers, $options: 'i' } };
+    if (customerName) query.customerName = { $regex: customerName, $options: 'i' };
     if (agentId && req.user.role === 'admin') query.assignedAgentId = agentId;
 
     // Fetch customers
