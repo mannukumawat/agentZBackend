@@ -8,6 +8,7 @@ import { Readable } from 'stream';
 import s3 from '../config/s3.js';
 import Customer from '../models/Customer.js';
 import { auth, adminOnly, agentAccess } from '../middleware/auth.js';
+import CallHistory from '../models/CallHistory.js';
 
 const router = express.Router();
 
@@ -268,7 +269,14 @@ router.post('/upload-csv', auth, adminOnly, upload.single('csvFile'), async (req
 // GET /api/customers - with pagination and filters
 router.get('/', auth, async (req, res) => {
   try {
-    const { page = 1, limit = 30, mobileNumbers, agentId , customerName} = req.query;
+    const { 
+      page = 1, 
+      limit = 30, 
+      mobileNumbers, 
+      agentId, 
+      customerName,
+      callStatus = 'not_called'   // 👈 default filter
+    } = req.query;
 
     let query = {};
 
@@ -278,9 +286,33 @@ router.get('/', auth, async (req, res) => {
     }
 
     // Filters
-    if (mobileNumbers) query.mobileNumbers = { $elemMatch: { $regex: mobileNumbers, $options: 'i' } };
-    if (customerName) query.customerName = { $regex: customerName, $options: 'i' };
-    if (agentId && req.user.role === 'admin') query.assignedAgentId = agentId;
+    if (mobileNumbers) {
+      query.mobileNumbers = { $elemMatch: { $regex: mobileNumbers, $options: 'i' } };
+    }
+
+    if (customerName) {
+      query.customerName = { $regex: customerName, $options: 'i' };
+    }
+
+    if (agentId && req.user.role === 'admin') {
+      query.assignedAgentId = agentId;
+    }
+
+    // -------------------------------
+    // ✅ CALL FILTER LOGIC
+    // -------------------------------
+
+    if (callStatus === 'called') {
+      // jisme call hui hai
+      const calledCustomerIds = await CallHistory.distinct('customerId');
+      query._id = { $in: calledCustomerIds };
+    }
+
+    if (callStatus === 'not_called') {
+      // jisme ek bhi call nahi hui
+      const calledCustomerIds = await CallHistory.distinct('customerId');
+      query._id = { $nin: calledCustomerIds };
+    }
 
     // Fetch customers
     const customers = await Customer.find(query)
@@ -289,20 +321,20 @@ router.get('/', auth, async (req, res) => {
       .skip((Number(page) - 1) * Number(limit))
       .exec();
 
-    // Count total matching customers
     const count = await Customer.countDocuments(query);
 
     res.json({
       customers,
       totalPages: Math.ceil(count / limit),
       currentPage: Number(page),
-      totalCount: count, // <-- Added this line (TOTAL COUNT)
+      totalCount: count,
     });
 
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
+
 
 
 // GET /api/customers/:id
