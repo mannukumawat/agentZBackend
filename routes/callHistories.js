@@ -155,4 +155,39 @@ router.get("/all", auth, async (req, res) => {
   }
 });
 
+// GET /api/call-histories/filtered?interested=true&startDate=2023-01-01&endDate=2023-12-31
+router.get('/filtered', auth, async (req, res) => {
+  try {
+    const { interested = 'true', startDate, endDate } = req.query;
+    let query = {};
+
+    // Filter by interested status, default to true (interested)
+    query.interested = interested === 'true';
+
+    // If not admin, only show agent's own call histories
+    if (req.user.role !== 'admin') {
+      query.agentId = req.user._id;
+    }
+
+    // Add date filtering if provided
+    if (startDate || endDate) {
+      query.callTime = {};
+      if (startDate) {
+        query.callTime.$gte = moment(startDate).startOf('day').toDate();
+      }
+      if (endDate) {
+        query.callTime.$lte = moment(endDate).endOf('day').toDate();
+      }
+    }
+
+    const callHistories = await CallHistory.find(query)
+      .populate('customerId',  'mobileNumbers customerName')
+      .populate('agentId', 'agentName')
+      .sort({ callTime: -1 }); // Newest first
+    res.json(callHistories);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 export default router;
