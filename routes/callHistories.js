@@ -12,7 +12,7 @@ router.post('/', auth, [
   body('customerId').isMongoId(),
   body('interested').isBoolean(),
   body('disposition').optional().isString(),
-  body('nextCallDateTime').optional().isISO8601(),
+  body('nextCallDateTime').optional().isNumeric(),
   body('attended').isBoolean(),
   body('notes').optional().isString(),
 ], async (req, res) => {
@@ -22,19 +22,21 @@ router.post('/', auth, [
   }
 
   try {
-    // Check if agent has access to customer
+    
     const customer = await Customer.findById(req.body.customerId);
     if (!customer) return res.status(404).json({ message: 'Customer not found' });
     if (req.user.role !== 'admin' && customer.assignedAgentId.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    const callHistory = new CallHistory({
-      ...req.body,
-      agentId: req.user._id,
-    });
-    await callHistory.save();
-    res.status(201).json(callHistory);
+   const callHistory = new CallHistory({
+  ...req.body,
+  agentId: req.user._id,
+  callTime: Date.now(), // epoch
+});
+
+await callHistory.save();
+res.status(201).json(callHistory);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
